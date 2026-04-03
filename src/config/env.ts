@@ -26,4 +26,10 @@ export const env = {
     accessExpiresIn: optional("JWT_ACCESS_EXPIRES_IN", "15m"),
     refreshExpiresIn: optional("JWT_REFRESH_EXPIRES_IN", "7d"),
   },
+  qf: {
+    clientId: required("QF_CLIENT_ID"),
+    clientSecret: required("QF_CLIENT_SECRET"),
+    redirectUri: required("QF_REDIRECT_URI"),
+    baseUrl: required("QF_BASE_URL"),
+  },
 };
