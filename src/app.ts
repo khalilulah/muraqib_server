@@ -5,6 +5,7 @@ import morgan from "morgan";
 import authRoutes from "./modules/auth/auth.routes";
 import userRoutes from "./modules/users/user.routes";
 import partnerRoutes from "./modules/partners/partner.routes";
+import recitationRoutes from "./modules/recitation/recitation.routes";
 const app = express();
 
 // Security
@@ -24,4 +25,5 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/partners", partnerRoutes);
+app.use("/api/recitation", recitationRoutes);
 export default app;

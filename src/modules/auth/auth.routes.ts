@@ -10,6 +10,6 @@ router.post("/login", authController.login);
 
 // Quran Foundation OAuth2
 router.get("/qf", authMiddleware, qfAuthController.redirectToQF);
-router.get("/qf/callback", authMiddleware, qfAuthController.handleCallback);
+router.get("/qf/callback", qfAuthController.handleCallback);
 
 export default router;
