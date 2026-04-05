@@ -239,12 +239,8 @@ export async function fetchVerses(
 
     // If we start at ayah 1 of a non-Fatiha surah, ayah 1 is Bismillah
     // We skip it in the loop but need to account for it in the filter range
-    const skipBismillah = currentSurah !== 1 && currentAyah === 1;
-
-    const availableInSurah =
-      totalInSurah - currentAyah + 1 - (skipBismillah ? 1 : 0);
+    const availableInSurah = totalInSurah - currentAyah + 1;
     const takeFromThisSurah = Math.min(remaining, availableInSurah);
-
     const response = await fetch(
       `https://api.alquran.cloud/v1/surah/${currentSurah}/ar.alafasy`,
     );
@@ -252,22 +248,32 @@ export async function fetchVerses(
     if (data.code !== 200) throw new Error("VERSE_FETCH_FAILED");
 
     // Include ayah 1 in filter so continue can handle it, +1 extra for the bismillah offset
-    const filterEnd = currentAyah + takeFromThisSurah + (skipBismillah ? 1 : 0);
     const surahAyahs = data.data.ayahs.filter(
-      (a: any) => a.numberInSurah >= currentAyah && a.numberInSurah < filterEnd,
+      (a: any) =>
+        a.numberInSurah >= currentAyah &&
+        a.numberInSurah < currentAyah + takeFromThisSurah,
     );
 
     for (const ayah of surahAyahs) {
       if (remaining <= 0) break;
 
-      // Skip Bismillah for all surahs except Al-Fatiha
-      if (currentSurah !== 1 && ayah.numberInSurah === 1) continue;
+      let text = ayah.text;
+
+      // For non-Fatiha surahs, strip Bismillah prefix from ayah 1
+      // The API prepends "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ " to ayah 1
+      if (currentSurah !== 1 && ayah.numberInSurah === 1) {
+        // Remove Bismillah prefix — try both with and without space variants
+        text = text
+          .replace(/^بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ\s*/u, "")
+          .replace(/^بسم الله الرحمن الرحيم\s*/u, "")
+          .trim();
+      }
 
       verses.push({
         uniqueKey: `${currentSurah}:${ayah.numberInSurah}`,
         surahNumber: currentSurah,
         ayahNumber: ayah.numberInSurah,
-        text: ayah.text,
+        text,
         audioUrl: ayah.audio,
         surahName: data.data.englishName,
       });
