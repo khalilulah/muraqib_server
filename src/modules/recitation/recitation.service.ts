@@ -255,17 +255,21 @@ export async function fetchVerses(
     );
 
     for (const ayah of surahAyahs) {
+      if (remaining <= 0) break;
+
+      // Skip Bismillah for all surahs except Al-Fatiha — it's shown in the separator instead
+      if (currentSurah !== 1 && ayah.numberInSurah === 1) continue;
+
       verses.push({
-        uniqueKey: `${currentSurah}:${ayah.numberInSurah}`, // 👈 unique across surahs
+        uniqueKey: `${currentSurah}:${ayah.numberInSurah}`,
         surahNumber: currentSurah,
         ayahNumber: ayah.numberInSurah,
         text: ayah.text,
         audioUrl: ayah.audio,
         surahName: data.data.englishName,
       });
+      remaining--;
     }
-
-    remaining -= takeFromThisSurah;
 
     // Move to next surah if needed
     if (remaining > 0) {
