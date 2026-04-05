@@ -1,7 +1,7 @@
 import { pool } from "../../config/db";
 import { sendPushNotification } from "../../utils/notifications";
 import { logQFActivityDay, getQFStreak } from "../../utils/qf.api";
-
+import { uploadAudio } from "../../utils/cloudinary";
 // ── Create a recitation goal ──────────────────────────────
 export async function createGoal(
   userId: string,
@@ -535,19 +535,26 @@ export async function submitRecitation(
   }
 
   // 6. Update session in DB
+  // Upload audio to Cloudinary — store URL instead of base64
+  let audioUrl = audioFileUrl;
+  if (audioFileUrl.startsWith("data:")) {
+    const base64Data = audioFileUrl.split(",")[1]!;
+    audioUrl = await uploadAudio(base64Data);
+  }
+
   const updated = await pool.query(
     `UPDATE recitation_sessions
-     SET transcription = $1,
-         audio_file_url = $2,
-         similarity_score = $3,
-         verification_status = $4,
-         verified_by = $5,
-         verified_at = $6
-     WHERE id = $7
-     RETURNING *`,
+   SET transcription = $1,
+       audio_file_url = $2,
+       similarity_score = $3,
+       verification_status = $4,
+       verified_by = $5,
+       verified_at = $6
+   WHERE id = $7
+   RETURNING *`,
     [
       transcription,
-      audioFileUrl,
+      audioUrl, // 👈 now a real URL, not base64
       score,
       verificationStatus,
       verificationStatus === "ai_verified" ? "ai" : null,

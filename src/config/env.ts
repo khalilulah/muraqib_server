@@ -32,4 +32,10 @@ export const env = {
     redirectUri: required("QF_REDIRECT_URI"),
     baseUrl: required("QF_BASE_URL"),
   },
+
+  cloudinary: {
+    cloudName: required("CLOUDINARY_CLOUD_NAME"),
+    apiKey: required("CLOUDINARY_API_KEY"),
+    apiSecret: required("CLOUDINARY_API_SECRET"),
+  },
 };
