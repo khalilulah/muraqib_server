@@ -96,32 +96,55 @@ export async function getActiveGoal(userId: string) {
 
 // ── Fetch verses from Al-Quran Cloud API ─────────────────
 // Returns Arabic text + audio URL for each ayah
-// This is our Content API usage for the hackathon ✅
 export async function fetchVerses(
-  surahNumber: number,
-  fromAyah: number,
-  toAyah: number,
-) {
-  // One API call for the whole surah instead of one per ayah
-  const response = await fetch(
-    `https://api.alquran.cloud/v1/surah/${surahNumber}/ar.alafasy`,
-  );
+  startSurah: number,
+  startAyah: number,
+  count: number,
+): Promise<
+  {
+    ayahNumber: number;
+    text: string;
+    audioUrl: string;
+    surahName: string;
+    surahNumber: number;
+  }[]
+> {
+  const verses = [];
+  let currentSurah = startSurah;
+  let currentAyah = startAyah;
+  let remaining = count;
 
-  const data = (await response.json()) as any;
-  if (data.code !== 200) throw new Error("VERSE_FETCH_FAILED");
+  while (remaining > 0 && currentSurah <= 114) {
+    const response = await fetch(
+      `https://api.alquran.cloud/v1/surah/${currentSurah}/ar.alafasy`,
+    );
+    const data = (await response.json()) as any;
+    if (data.code !== 200) throw new Error("VERSE_FETCH_FAILED");
 
-  // Slice only the ayahs the user needs
-  return data.data.ayahs
-    .filter(
-      (ayah: any) =>
-        ayah.numberInSurah >= fromAyah && ayah.numberInSurah <= toAyah,
-    )
-    .map((ayah: any) => ({
-      ayahNumber: ayah.numberInSurah,
-      text: ayah.text,
-      audioUrl: ayah.audio,
-      surahName: data.data.englishName,
-    }));
+    const surahAyahs = data.data.ayahs.filter(
+      (a: any) => a.numberInSurah >= currentAyah,
+    );
+
+    for (const ayah of surahAyahs) {
+      if (remaining <= 0) break;
+      verses.push({
+        surahNumber: currentSurah,
+        ayahNumber: ayah.numberInSurah,
+        text: ayah.text,
+        audioUrl: ayah.audio,
+        surahName: data.data.englishName,
+      });
+      remaining--;
+    }
+
+    // Move to next surah if we still need more verses
+    if (remaining > 0) {
+      currentSurah++;
+      currentAyah = 1;
+    }
+  }
+
+  return verses;
 }
 
 // ── Start a recitation session ────────────────────────────
@@ -174,101 +197,39 @@ async function getSurahAyahCount(surahNumber: number): Promise<number> {
 async function resolveVerseRange(goal: any): Promise<{
   surahNumber: number;
   fromAyah: number;
-  toAyah: number;
+  count: number;
 }> {
-  // Fixed — same verses every day
   if (goal.goal_type === "fixed") {
     return {
       surahNumber: goal.current_surah,
       fromAyah: goal.current_ayah,
-      toAyah: goal.fixed_to_ayah,
+      count: goal.daily_ayah_count ?? 10,
     };
   }
 
-  // Ayah count — continue from where they left off
-  if (goal.goal_type === "ayah_count") {
-    let surahNumber = goal.current_surah;
-    let fromAyah = goal.current_ayah;
-    let remaining = goal.daily_ayah_count;
-    let toAyah = fromAyah;
-
-    const totalAyahs = await getSurahAyahCount(surahNumber);
-
-    // If remaining ayahs fit within this surah
-    if (fromAyah + remaining - 1 <= totalAyahs) {
-      toAyah = fromAyah + remaining - 1;
-    } else {
-      // Go to end of surah — we'll handle cross-surah in a future update
-      toAyah = totalAyahs;
-    }
-
-    return { surahNumber, fromAyah, toAyah };
+  if (
+    goal.goal_type === "ayah_count" ||
+    goal.goal_type === "quran" ||
+    goal.goal_type === "juz"
+  ) {
+    return {
+      surahNumber: goal.current_surah,
+      fromAyah: goal.current_ayah,
+      count: goal.daily_ayah_count ?? 20,
+    };
   }
 
-  // Juz — find which juz they're in and serve those verses
-  if (goal.goal_type === "juz") {
-    // Find current juz based on current_surah and current_ayah
-    let currentJuz = 1;
-    for (let j = 30; j >= 1; j--) {
-      const [s, a] = JUZ_START[j]!;
-      if (
-        goal.current_surah > s ||
-        (goal.current_surah === s && goal.current_ayah >= a)
-      ) {
-        currentJuz = j;
-        break;
-      }
-    }
-
-    const [surahNumber, fromAyah] = JUZ_START[currentJuz]!;
-    const nextJuz = currentJuz + 1;
-    let toAyah: number;
-
-    if (nextJuz <= 30) {
-      const [nextSurah, nextAyah] = JUZ_START[nextJuz]!;
-      if (nextSurah === surahNumber) {
-        toAyah = nextAyah - 1;
-      } else {
-        toAyah = await getSurahAyahCount(surahNumber);
-      }
-    } else {
-      toAyah = await getSurahAyahCount(surahNumber);
-    }
-
-    return { surahNumber, fromAyah, toAyah };
-  }
-
-  // Random — pick a random starting point in the Quran each day
   if (goal.goal_type === "random") {
     const randomSurah = Math.floor(Math.random() * 114) + 1;
     const totalAyahs = await getSurahAyahCount(randomSurah);
     const randomFromAyah = Math.floor(Math.random() * totalAyahs) + 1;
-    const dailyCount = goal.daily_ayah_count ?? 10;
-
-    // Make sure we don't go past the end of the surah
-    const toAyah = Math.min(randomFromAyah + dailyCount - 1, totalAyahs);
-
     return {
       surahNumber: randomSurah,
       fromAyah: randomFromAyah,
-      toAyah,
+      count: goal.daily_ayah_count ?? 10,
     };
   }
 
-  // Quran — same as ayah_count, continues from last position
-  // daily_ayah_count is auto calculated at goal creation (6236 / 30 = 208/day)
-  if (goal.goal_type === "quran") {
-    const totalAyahs = await getSurahAyahCount(goal.current_surah);
-    const dailyCount = goal.daily_ayah_count ?? 208;
-    const fromAyah = goal.current_ayah;
-    const toAyah = Math.min(fromAyah + dailyCount - 1, totalAyahs);
-
-    return {
-      surahNumber: goal.current_surah,
-      fromAyah,
-      toAyah,
-    };
-  }
   throw new Error("UNKNOWN_GOAL_TYPE");
 }
 
@@ -284,21 +245,28 @@ export async function advanceProgress(userId: string, goalId: string) {
 
   const dailyCount = goal.daily_ayah_count ?? 20;
   let nextSurah = goal.current_surah;
-  let nextAyah = goal.current_ayah + dailyCount;
-  const totalAyahs = await getSurahAyahCount(nextSurah);
+  let nextAyah = goal.current_ayah;
+  let remaining = dailyCount;
 
-  // Keep advancing surah until nextAyah fits within it
-  while (nextAyah > totalAyahs) {
-    nextAyah = nextAyah - totalAyahs;
-    nextSurah = nextSurah + 1;
-    if (nextSurah > 114) {
-      // Wrap back to beginning
-      nextSurah = 1;
+  // Walk through surahs until we've advanced by dailyCount ayahs
+  while (remaining > 0 && nextSurah <= 114) {
+    const totalAyahs = await getSurahAyahCount(nextSurah);
+    const ayahsLeftInSurah = totalAyahs - nextAyah + 1;
+
+    if (remaining <= ayahsLeftInSurah) {
+      nextAyah = nextAyah + remaining;
+      remaining = 0;
+    } else {
+      remaining -= ayahsLeftInSurah;
+      nextSurah++;
       nextAyah = 1;
-      break;
     }
-    const newTotal = await getSurahAyahCount(nextSurah);
-    if (nextAyah <= newTotal) break;
+  }
+
+  // Wrap back to beginning after An-Nas
+  if (nextSurah > 114) {
+    nextSurah = 1;
+    nextAyah = 1;
   }
 
   await pool.query(
@@ -322,16 +290,13 @@ export async function startSession(userId: string, goalId: string) {
   }
 
   // Resolve what to recite today
-  const { surahNumber, fromAyah, toAyah } = await resolveVerseRange(goal);
+  const { surahNumber, fromAyah, count } = await resolveVerseRange(goal);
+  const verses = await fetchVerses(surahNumber, fromAyah, count);
 
-  // Fetch verses from Al-Quran Cloud
-  const verses = await fetchVerses(surahNumber, fromAyah, toAyah);
-
-  // Create session in DB
   const sessionResult = await pool.query(
     `INSERT INTO recitation_sessions (user_id, goal_id)
-     VALUES ($1, $2)
-     RETURNING *`,
+   VALUES ($1, $2)
+   RETURNING *`,
     [userId, goalId],
   );
 
@@ -341,7 +306,6 @@ export async function startSession(userId: string, goalId: string) {
     meta: {
       surahNumber,
       fromAyah,
-      toAyah,
       totalAyahs: verses.length,
     },
   };
@@ -414,7 +378,7 @@ export async function submitRecitation(
   const verses = await fetchVerses(
     session.current_surah,
     session.current_ayah,
-    Math.min(session.current_ayah + dailyCount - 1, 286),
+    session.daily_ayah_count ?? 20,
   );
   const quranText = verses.map((v: { text: string }) => v.text).join(" ");
 
