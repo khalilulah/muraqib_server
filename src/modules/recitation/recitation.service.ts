@@ -257,25 +257,11 @@ export async function fetchVerses(
     for (const ayah of surahAyahs) {
       if (remaining <= 0) break;
 
-      let text = ayah.text;
-
-      // For non-Fatiha surahs, strip Bismillah prefix from ayah 1
-      // The API prepends "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ " to ayah 1
-      if (currentSurah !== 1 && ayah.numberInSurah === 1) {
-        // Split on the known Bismillah ending and take everything after it
-        const bismillahEnding = "ٱلرَّحِيمِ";
-        const splitIndex = text.indexOf(bismillahEnding);
-
-        if (splitIndex !== -1) {
-          text = text.slice(splitIndex + bismillahEnding.length).trim();
-        }
-      }
-
       verses.push({
         uniqueKey: `${currentSurah}:${ayah.numberInSurah}`,
         surahNumber: currentSurah,
         ayahNumber: ayah.numberInSurah,
-        text,
+        text: ayah.text, // send raw text, frontend handles stripping
         audioUrl: ayah.audio,
         surahName: data.data.englishName,
       });
