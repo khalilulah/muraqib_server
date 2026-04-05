@@ -234,30 +234,33 @@ export async function fetchVerses(
   let remaining = count;
 
   while (remaining > 0 && currentSurah <= 114) {
-    const totalInSurah = SURAH_AYAH_COUNTS[currentSurah] ?? 7;
+    const totalInSurah = SURAH_AYAH_COUNTS[currentSurah];
+    if (!totalInSurah) throw new Error(`Invalid surah number: ${currentSurah}`);
 
-    // How many ayahs can we take from this surah?
-    const availableInSurah = totalInSurah - currentAyah + 1;
+    // If we start at ayah 1 of a non-Fatiha surah, ayah 1 is Bismillah
+    // We skip it in the loop but need to account for it in the filter range
+    const skipBismillah = currentSurah !== 1 && currentAyah === 1;
+
+    const availableInSurah =
+      totalInSurah - currentAyah + 1 - (skipBismillah ? 1 : 0);
     const takeFromThisSurah = Math.min(remaining, availableInSurah);
 
-    // Fetch this surah from API
     const response = await fetch(
       `https://api.alquran.cloud/v1/surah/${currentSurah}/ar.alafasy`,
     );
     const data = (await response.json()) as any;
     if (data.code !== 200) throw new Error("VERSE_FETCH_FAILED");
 
-    // Take only the ayahs we need from this surah
+    // Include ayah 1 in filter so continue can handle it, +1 extra for the bismillah offset
+    const filterEnd = currentAyah + takeFromThisSurah + (skipBismillah ? 1 : 0);
     const surahAyahs = data.data.ayahs.filter(
-      (a: any) =>
-        a.numberInSurah >= currentAyah &&
-        a.numberInSurah < currentAyah + takeFromThisSurah,
+      (a: any) => a.numberInSurah >= currentAyah && a.numberInSurah < filterEnd,
     );
 
     for (const ayah of surahAyahs) {
       if (remaining <= 0) break;
 
-      // Skip Bismillah for all surahs except Al-Fatiha — it's shown in the separator instead
+      // Skip Bismillah for all surahs except Al-Fatiha
       if (currentSurah !== 1 && ayah.numberInSurah === 1) continue;
 
       verses.push({
@@ -271,7 +274,6 @@ export async function fetchVerses(
       remaining--;
     }
 
-    // Move to next surah if needed
     if (remaining > 0) {
       currentSurah++;
       currentAyah = 1;
