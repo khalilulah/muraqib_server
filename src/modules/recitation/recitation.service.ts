@@ -400,20 +400,21 @@ export async function submitRecitation(
 ) {
   // 1. Fetch the session and goal
   const sessionResult = await pool.query(
-    `SELECT rs.*, rg.surah_number, rg.from_ayah, rg.to_ayah
-     FROM recitation_sessions rs
-     JOIN recitation_goals rg ON rg.id = rs.goal_id
-     WHERE rs.id = $1 AND rs.user_id = $2`,
+    `SELECT rs.*, rg.goal_type, rg.current_surah, rg.current_ayah, rg.daily_ayah_count
+   FROM recitation_sessions rs
+   JOIN recitation_goals rg ON rg.id = rs.goal_id
+   WHERE rs.id = $1 AND rs.user_id = $2`,
     [sessionId, userId],
   );
   const session = sessionResult.rows[0];
   if (!session) throw new Error("SESSION_NOT_FOUND");
 
   // 2. Fetch the actual verse text to compare against
+  const dailyCount = session.daily_ayah_count ?? 20;
   const verses = await fetchVerses(
-    session.surah_number,
-    session.from_ayah,
-    session.to_ayah,
+    session.current_surah,
+    session.current_ayah,
+    Math.min(session.current_ayah + dailyCount - 1, 286),
   );
   const quranText = verses.map((v: { text: string }) => v.text).join(" ");
 
