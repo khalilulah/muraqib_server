@@ -8,10 +8,16 @@ cloudinary.config({
 });
 
 export async function uploadAudio(base64Data: string): Promise<string> {
+  console.log("Cloudinary config:", {
+    cloud_name: env.cloudinary.cloudName,
+    api_key: env.cloudinary.apiKey,
+    secret_length: env.cloudinary.apiSecret.length,
+  });
+
   const result = await cloudinary.uploader.upload(
     `data:audio/m4a;base64,${base64Data}`,
     {
-      resource_type: "video", // Cloudinary uses "video" for audio files
+      resource_type: "video",
       folder: "muraqib/recitations",
       format: "m4a",
     },
