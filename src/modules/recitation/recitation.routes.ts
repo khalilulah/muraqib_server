@@ -13,4 +13,5 @@ router.post("/sessions/submit", recitationController.submitRecitation);
 router.patch("/sessions/:id/review", recitationController.reviewRecitation);
 router.get("/streak", recitationController.getStreak);
 router.get("/history", recitationController.getRecitationHistory);
+router.get("/sessions/:id", recitationController.getSession);
 export default router;

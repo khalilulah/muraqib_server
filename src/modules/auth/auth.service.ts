@@ -37,7 +37,8 @@ export async function register(data: {
 export async function login(data: { email: string; password: string }) {
   // 1. Find user by email
   const result = await pool.query(
-    `SELECT id, email, username, password_hash FROM users WHERE email = $1`,
+    `SELECT id, email, username, password_hash, gender, qf_connected
+   FROM users WHERE email = $1`,
     [data.email],
   );
   const user = result.rows[0];
@@ -79,6 +80,8 @@ export async function login(data: { email: string; password: string }) {
       id: user.id,
       email: user.email,
       username: user.username,
+      gender: user.gender,
+      qfConnected: user.qf_connected,
     },
     accessToken,
     refreshToken,

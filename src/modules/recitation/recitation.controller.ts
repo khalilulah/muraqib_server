@@ -199,3 +199,20 @@ export async function getRecitationHistory(
     sendError(res, "Something went wrong", 500);
   }
 }
+
+export async function getSession(
+  req: AuthRequest,
+  res: Response,
+): Promise<void> {
+  try {
+    const sessionId = req.params["id"] as string;
+    const session = await recitationService.getSession(sessionId);
+    sendSuccess(res, session, "Session fetched");
+  } catch (error: any) {
+    if (error.message === "SESSION_NOT_FOUND") {
+      sendError(res, "Session not found", 404);
+      return;
+    }
+    sendError(res, "Something went wrong", 500);
+  }
+}

@@ -665,3 +665,12 @@ export async function getRecitationHistory(userId: string, limit = 10) {
 
   return result.rows;
 }
+
+export async function getSession(sessionId: string) {
+  const result = await pool.query(
+    `SELECT * FROM recitation_sessions WHERE id = $1`,
+    [sessionId],
+  );
+  if (result.rows.length === 0) throw new Error("SESSION_NOT_FOUND");
+  return result.rows[0];
+}
