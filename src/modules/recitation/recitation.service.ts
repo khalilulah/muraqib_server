@@ -769,16 +769,23 @@ export async function getSession(sessionId: string) {
 
 export async function getPendingReviews(userId: string) {
   const result = await pool.query(
-    `SELECT rs.id, rs.created_at, u.username AS partner_username
+    `SELECT
+      rs.id,
+      rs.created_at,
+      u.username AS partner_username
      FROM recitation_sessions rs
      JOIN users u ON u.id = rs.user_id
-     JOIN partnerships p ON (
-       (p.requester_id = $1 OR p.receiver_id = $1)
-       AND (p.requester_id = rs.user_id OR p.receiver_id = rs.user_id)
-       AND p.status = 'accepted'
-     )
      WHERE rs.verification_status = 'pending'
      AND rs.user_id != $1
+     AND EXISTS (
+       SELECT 1 FROM partnerships p
+       WHERE p.status = 'accepted'
+       AND (
+         (p.requester_id = $1 AND p.receiver_id = rs.user_id)
+         OR
+         (p.receiver_id = $1 AND p.requester_id = rs.user_id)
+       )
+     )
      ORDER BY rs.created_at DESC`,
     [userId],
   );
