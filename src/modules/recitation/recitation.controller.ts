@@ -216,3 +216,15 @@ export async function getSession(
     sendError(res, "Something went wrong", 500);
   }
 }
+
+export async function getPendingReviews(
+  req: AuthRequest,
+  res: Response,
+): Promise<void> {
+  try {
+    const reviews = await recitationService.getPendingReviews(req.user!.id);
+    sendSuccess(res, reviews, "Pending reviews fetched");
+  } catch (error) {
+    sendError(res, "Something went wrong", 500);
+  }
+}

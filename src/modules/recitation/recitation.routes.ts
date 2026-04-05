@@ -14,4 +14,5 @@ router.patch("/sessions/:id/review", recitationController.reviewRecitation);
 router.get("/streak", recitationController.getStreak);
 router.get("/history", recitationController.getRecitationHistory);
 router.get("/sessions/:id", recitationController.getSession);
+router.get("/sessions/pending-reviews", recitationController.getPendingReviews);
 export default router;
