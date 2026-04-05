@@ -262,6 +262,7 @@ export async function fetchVerses(
       // For non-Fatiha surahs, strip Bismillah prefix from ayah 1
       // The API prepends "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ " to ayah 1
       if (currentSurah !== 1 && ayah.numberInSurah === 1) {
+        console.log("Raw ayah 1 text:", JSON.stringify(ayah.text));
         // Remove Bismillah prefix — try both with and without space variants
         text = text
           .replace(/^بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ\s*/u, "")
