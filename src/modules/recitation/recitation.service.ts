@@ -279,30 +279,30 @@ export async function advanceProgress(userId: string, goalId: string) {
     [goalId, userId],
   );
   const goal = goalResult.rows[0];
-  if (!goal) return;
+  if (!goal || goal.goal_type === "fixed" || goal.goal_type === "random")
+    return;
 
-  if (goal.goal_type === "fixed") return; // fixed goals don't advance
-
-  const totalAyahs = await getSurahAyahCount(goal.current_surah);
-  const dailyCount = goal.daily_ayah_count ?? 0;
+  const dailyCount = goal.daily_ayah_count ?? 20;
   let nextSurah = goal.current_surah;
   let nextAyah = goal.current_ayah + dailyCount;
+  const totalAyahs = await getSurahAyahCount(nextSurah);
 
-  // Move to next surah if we've passed the end
-  if (nextAyah > totalAyahs) {
-    nextSurah = goal.current_surah + 1;
-    nextAyah = 1;
-    // Wrap back to Al-Fatiha after An-Nas
+  // Keep advancing surah until nextAyah fits within it
+  while (nextAyah > totalAyahs) {
+    nextAyah = nextAyah - totalAyahs;
+    nextSurah = nextSurah + 1;
     if (nextSurah > 114) {
+      // Wrap back to beginning
       nextSurah = 1;
       nextAyah = 1;
+      break;
     }
+    const newTotal = await getSurahAyahCount(nextSurah);
+    if (nextAyah <= newTotal) break;
   }
 
   await pool.query(
-    `UPDATE recitation_goals
-     SET current_surah = $1, current_ayah = $2
-     WHERE id = $3`,
+    `UPDATE recitation_goals SET current_surah = $1, current_ayah = $2 WHERE id = $3`,
     [nextSurah, nextAyah, goalId],
   );
 }
