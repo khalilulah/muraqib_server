@@ -88,8 +88,11 @@ export async function getMyPartner(userId: string) {
        g.scheduled_time AS goal_scheduled_time,
        g.goal_type      AS goal_type
      FROM partnerships p
-     JOIN users u ON (
-       CASE WHEN p.requester_id = $1 THEN p.receiver_id ELSE p.requester_id END = u.id
+     JOIN users u ON u.id = (
+       CASE
+         WHEN p.requester_id = $1 THEN p.receiver_id
+         ELSE p.requester_id
+       END
      )
      LEFT JOIN recitation_goals g
        ON g.user_id = u.id AND g.is_active = true
