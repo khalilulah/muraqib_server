@@ -1,7 +1,7 @@
 import { pool } from "../config/db";
 import { env } from "../config/env";
 
-const QF_API_BASE = "https://api.quran.foundation/api/v4";
+const QF_API_BASE = "https://prelive-oauth2.quran.foundation";
 
 // ── Get user's QF access token from DB ────────────────────
 async function getQFToken(userId: string): Promise<string | null> {
@@ -31,11 +31,9 @@ export async function qfRequest(
   method: string,
   path: string,
   body?: Record<string, unknown>,
+  extraHeaders?: Record<string, string>,
 ): Promise<any> {
   const token = await getQFToken(userId);
-
-  // If user hasn't connected QF account, skip silently
-  // Our own DB handles the fallback
   if (!token) return null;
 
   const response = await fetch(`${QF_API_BASE}${path}`, {
@@ -44,6 +42,7 @@ export async function qfRequest(
       "Content-Type": "application/json",
       "x-auth-token": token,
       "x-client-id": env.qf.clientId,
+      ...extraHeaders,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -58,13 +57,59 @@ export async function qfRequest(
 
 // ── Log an activity day on QF ─────────────────────────────
 // Called after every successful recitation
-export async function logQFActivityDay(userId: string) {
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+export async function logQFActivityDay(
+  userId: string,
+  verses: { surahNumber: number; ayahNumber: number }[],
+  recordingDurationSeconds: number,
+  userTimezone: string = "UTC",
+) {
+  if (verses.length === 0) return;
 
-  await qfRequest(userId, "POST", "/activity-days", {
-    date: today,
-    type: "QURAN",
-  });
+  // Build ranges string e.g. "1:1-1:7,2:1-2:4"
+  // Group consecutive ayahs into ranges per surah
+  const ranges: string[] = [];
+  let rangeStart = verses[0]!;
+  let rangeEnd = verses[0]!;
+
+  for (let i = 1; i < verses.length; i++) {
+    const current = verses[i]!;
+    const prev = verses[i - 1]!;
+
+    const consecutive =
+      (current.surahNumber === prev.surahNumber &&
+        current.ayahNumber === prev.ayahNumber + 1) ||
+      (current.surahNumber === prev.surahNumber + 1 &&
+        current.ayahNumber === 1);
+
+    if (consecutive) {
+      rangeEnd = current;
+    } else {
+      ranges.push(
+        `${rangeStart.surahNumber}:${rangeStart.ayahNumber}-${rangeEnd.surahNumber}:${rangeEnd.ayahNumber}`,
+      );
+      rangeStart = current;
+      rangeEnd = current;
+    }
+  }
+
+  // Push the last range
+  ranges.push(
+    `${rangeStart.surahNumber}:${rangeStart.ayahNumber}-${rangeEnd.surahNumber}:${rangeEnd.ayahNumber}`,
+  );
+
+  await qfRequest(
+    userId,
+    "POST",
+    "/activity-days",
+    {
+      type: "QURAN",
+      seconds: Math.max(recordingDurationSeconds, 1),
+      ranges,
+      mushafId: 4, // UthmaniHafs
+      date: new Date().toISOString().split("T")[0],
+    },
+    { "x-timezone": userTimezone },
+  );
 }
 
 // ── Get user's streak from QF ─────────────────────────────

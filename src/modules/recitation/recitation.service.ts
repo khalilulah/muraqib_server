@@ -565,9 +565,16 @@ export async function submitRecitation(
 
   // 7. If auto approved → update streak immediately
 
+  // Pass verses and recording duration to updateStreak
   if (verificationStatus === "ai_verified") {
-    await updateStreak(userId);
-    await advanceProgress(userId, session.goal_id); // 👈 add this
+    const verseList = verses.map(
+      (v: { surahNumber: number; ayahNumber: number }) => ({
+        surahNumber: v.surahNumber,
+        ayahNumber: v.ayahNumber,
+      }),
+    );
+    await updateStreak(userId, verseList, 0); // duration comes from partner review
+    await advanceProgress(userId, session.goal_id);
   }
 
   return {
@@ -579,7 +586,11 @@ export async function submitRecitation(
 }
 
 // ── Update streak ─────────────────────────────────────────
-export async function updateStreak(userId: string) {
+export async function updateStreak(
+  userId: string,
+  verses: { surahNumber: number; ayahNumber: number }[],
+  recordingDurationSeconds: number,
+) {
   // Check if user already completed a session today
   const todayResult = await pool.query(
     `SELECT id FROM recitation_sessions
@@ -620,7 +631,7 @@ export async function updateStreak(userId: string) {
     [userId, isConsecutive],
   );
   // Log activity to Quran Foundation — if user has connected their QF account
-  await logQFActivityDay(userId);
+  await logQFActivityDay(userId, verses, recordingDurationSeconds);
 }
 
 // ── Partner reviews a recitation ──────────────────────────
@@ -667,7 +678,7 @@ export async function reviewRecitation(
 
   // 5. If approved → update reciter's streak and advance progress
   if (action === "approved") {
-    await updateStreak(session.user_id);
+    await updateStreak(session.user_id, [], 0);
     await advanceProgress(session.user_id, session.goal_id);
   }
 
