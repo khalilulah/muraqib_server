@@ -76,18 +76,48 @@ export async function respondToRequest(
 // ── Get my current active partner ────────────────────────
 export async function getMyPartner(userId: string) {
   const result = await pool.query(
-    `SELECT u.id, u.username, u.email, u.gender
+    `SELECT
+       u.id,
+       u.username,
+       u.email,
+       u.gender,
+       g.surah_number   AS goal_surah_number,
+       g.surah_name     AS goal_surah_name,
+       g.from_ayah      AS goal_from_ayah,
+       g.to_ayah        AS goal_to_ayah,
+       g.scheduled_time AS goal_scheduled_time,
+       g.goal_type      AS goal_type
      FROM partnerships p
      JOIN users u ON (
        CASE WHEN p.requester_id = $1 THEN p.receiver_id ELSE p.requester_id END = u.id
      )
+     LEFT JOIN recitation_goals g
+       ON g.user_id = u.id AND g.is_active = true
      WHERE (p.requester_id = $1 OR p.receiver_id = $1)
-     AND p.status = 'accepted'
+       AND p.status = 'accepted'
      LIMIT 1`,
     [userId],
   );
 
-  return result.rows[0] ?? null;
+  const row = result.rows[0];
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    username: row.username,
+    email: row.email,
+    gender: row.gender,
+    goal: row.goal_surah_name
+      ? {
+          surahNumber: row.goal_surah_number,
+          surahName: row.goal_surah_name,
+          fromAyah: row.goal_from_ayah,
+          toAyah: row.goal_to_ayah,
+          scheduledTime: row.goal_scheduled_time,
+          goalType: row.goal_type,
+        }
+      : null,
+  };
 }
 
 // ── Get incoming pending requests ─────────────────────────
