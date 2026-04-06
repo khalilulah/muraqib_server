@@ -1,15 +1,15 @@
 import { pool } from "../../config/db";
 
 // Get a single user by their ID — used by the /me endpoint
-export async function getUserById(id: string) {
+export const getUserById = async (id: string) => {
   const result = await pool.query(
-    `SELECT id, email, username, gender, fcm_token, created_at, updated_at
-     FROM users
-     WHERE id = $1`,
+    `SELECT id, email, username, gender, fcm_token, qf_connected,
+            qf_token_expires_at, created_at, updated_at
+     FROM users WHERE id = $1`,
     [id],
   );
   return result.rows[0] ?? null;
-}
+};
 
 // Update FCM token — called when the mobile app registers for push notifications
 export async function updateFcmToken(userId: string, fcmToken: string) {

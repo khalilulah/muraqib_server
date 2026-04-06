@@ -6,23 +6,64 @@ const QF_API_BASE = "https://apis.quran.foundation/auth/v1";
 // ── Get user's QF access token from DB ────────────────────
 async function getQFToken(userId: string): Promise<string | null> {
   const result = await pool.query(
-    `SELECT qf_access_token, qf_token_expires_at, qf_connected
+    `SELECT qf_access_token, qf_refresh_token, qf_token_expires_at, qf_connected
      FROM users WHERE id = $1`,
     [userId],
   );
   const user = result.rows[0];
-
   if (!user || !user.qf_connected || !user.qf_access_token) return null;
 
-  // Check if token is expired
-  if (
-    user.qf_token_expires_at &&
-    new Date(user.qf_token_expires_at) < new Date()
-  ) {
-    return null; // We'll handle refresh later
+  // Check if token is still valid (with 5 min buffer)
+  const expiresAt = new Date(user.qf_token_expires_at);
+  const now = new Date();
+  const bufferMs = 5 * 60 * 1000;
+
+  if (expiresAt.getTime() - now.getTime() > bufferMs) {
+    return user.qf_access_token; // still valid
   }
 
-  return user.qf_access_token;
+  // Token expired — try to refresh
+  if (!user.qf_refresh_token) return null;
+
+  try {
+    const credentials = Buffer.from(
+      `${env.qf.clientId}:${env.qf.clientSecret}`,
+    ).toString("base64");
+
+    const response = await fetch(`${env.qf.baseUrl}/oauth2/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${credentials}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: user.qf_refresh_token,
+      }).toString(),
+    });
+
+    const data = (await response.json()) as any;
+    if (!response.ok) {
+      console.error("QF token refresh failed:", data);
+      return null;
+    }
+
+    // Save new tokens
+    await pool.query(
+      `UPDATE users
+       SET qf_access_token = $1,
+           qf_refresh_token = $2,
+           qf_token_expires_at = NOW() + ($3 || ' seconds')::INTERVAL
+       WHERE id = $4`,
+      [data.access_token, data.refresh_token, data.expires_in, userId],
+    );
+
+    console.log("QF token refreshed successfully");
+    return data.access_token;
+  } catch (error) {
+    console.error("QF token refresh error:", error);
+    return null;
+  }
 }
 
 // ── Make an authenticated request to QF User API ──────────
