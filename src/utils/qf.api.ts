@@ -1,7 +1,7 @@
 import { pool } from "../config/db";
 import { env } from "../config/env";
 
-const QF_API_BASE = "https://prelive-oauth2.quran.foundation";
+const QF_API_BASE = "https://apis.quran.foundation/auth/v1";
 
 // ── Get user's QF access token from DB ────────────────────
 async function getQFToken(userId: string): Promise<string | null> {
@@ -105,7 +105,7 @@ export async function logQFActivityDay(
       type: "QURAN",
       seconds: Math.max(recordingDurationSeconds, 1),
       ranges,
-      mushafId: 4, // UthmaniHafs
+      mushafId: 4,
       date: new Date().toISOString().split("T")[0],
     },
     { "x-timezone": userTimezone },

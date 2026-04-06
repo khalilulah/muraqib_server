@@ -705,7 +705,6 @@ export async function reviewRecitation(
 
 // ── Get user's current streak ─────────────────────────────
 export async function getStreak(userId: string) {
-  // Get our local streak
   const result = await pool.query(
     `SELECT
       s.current_streak,
@@ -737,9 +736,14 @@ export async function getStreak(userId: string) {
           completedToday: result.rows[0].completed_today,
         };
 
-  // Get QF streak if user has connected their account
-  const qfStreak = await getQFStreak(userId);
-  const qfCurrentStreak = qfStreak?.data?.[0] ?? null;
+  // QF streak — fail silently, never crash the endpoint
+  let qfCurrentStreak = null;
+  try {
+    const qfStreak = await getQFStreak(userId);
+    qfCurrentStreak = qfStreak?.data?.[0] ?? null;
+  } catch {
+    // QF API unavailable — just skip it
+  }
 
   return {
     ...localStreak,

@@ -45,7 +45,7 @@ export function getAuthorizationUrl(userId: string): string {
     client_id: env.qf.clientId,
     redirect_uri: env.qf.redirectUri,
     response_type: "code",
-    scope: "openid offline_access activity_day",
+    scope: "openid offline_access streak activity_day",
     state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
