@@ -81,12 +81,13 @@ export async function getMyPartner(userId: string) {
        u.username,
        u.email,
        u.gender,
-       g.surah_number   AS goal_surah_number,
-       g.surah_name     AS goal_surah_name,
-       g.from_ayah      AS goal_from_ayah,
-       g.to_ayah        AS goal_to_ayah,
-       g.scheduled_time AS goal_scheduled_time,
-       g.goal_type      AS goal_type
+       g.goal_type        AS goal_type,
+       g.daily_ayah_count AS goal_daily_ayah_count,
+       g.daily_juz_count  AS goal_daily_juz_count,
+       g.current_surah    AS goal_current_surah,
+       g.current_ayah     AS goal_current_ayah,
+       g.scheduled_time   AS goal_scheduled_time,
+       g.valid_until      AS goal_valid_until
      FROM partnerships p
      JOIN users u ON u.id = (
        CASE
@@ -110,14 +111,15 @@ export async function getMyPartner(userId: string) {
     username: row.username,
     email: row.email,
     gender: row.gender,
-    goal: row.goal_surah_name
+    goal: row.goal_type
       ? {
-          surahNumber: row.goal_surah_number,
-          surahName: row.goal_surah_name,
-          fromAyah: row.goal_from_ayah,
-          toAyah: row.goal_to_ayah,
-          scheduledTime: row.goal_scheduled_time,
           goalType: row.goal_type,
+          dailyAyahCount: row.goal_daily_ayah_count,
+          dailyJuzCount: row.goal_daily_juz_count,
+          currentSurah: row.goal_current_surah,
+          currentAyah: row.goal_current_ayah,
+          scheduledTime: row.goal_scheduled_time,
+          validUntil: row.goal_valid_until,
         }
       : null,
   };
