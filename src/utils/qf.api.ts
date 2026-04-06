@@ -1,7 +1,7 @@
 import { pool } from "../config/db";
 import { env } from "../config/env";
 
-const QF_API_BASE = "https://apis.quran.foundation/auth/v1";
+const QF_API_BASE = "https://apis-prelive.quran.foundation/auth/v1";
 
 // ── Get user's QF access token from DB ────────────────────
 async function getQFToken(userId: string): Promise<string | null> {
@@ -102,12 +102,10 @@ export async function logQFActivityDay(
   userId: string,
   verses: { surahNumber: number; ayahNumber: number }[],
   recordingDurationSeconds: number,
-  userTimezone: string = "UTC",
 ) {
   if (verses.length === 0) return;
 
-  // Build ranges string e.g. "1:1-1:7,2:1-2:4"
-  // Group consecutive ayahs into ranges per surah
+  // Build ranges — e.g. ["1:1-1:7", "2:2-2:5"]
   const ranges: string[] = [];
   let rangeStart = verses[0]!;
   let rangeEnd = verses[0]!;
@@ -115,7 +113,6 @@ export async function logQFActivityDay(
   for (let i = 1; i < verses.length; i++) {
     const current = verses[i]!;
     const prev = verses[i - 1]!;
-
     const consecutive =
       (current.surahNumber === prev.surahNumber &&
         current.ayahNumber === prev.ayahNumber + 1) ||
@@ -132,13 +129,11 @@ export async function logQFActivityDay(
       rangeEnd = current;
     }
   }
-
-  // Push the last range
   ranges.push(
     `${rangeStart.surahNumber}:${rangeStart.ayahNumber}-${rangeEnd.surahNumber}:${rangeEnd.ayahNumber}`,
   );
 
-  await qfRequest(
+  const result = await qfRequest(
     userId,
     "POST",
     "/activity-days",
@@ -149,11 +144,19 @@ export async function logQFActivityDay(
       mushafId: 4,
       date: new Date().toISOString().split("T")[0],
     },
-    { "x-timezone": userTimezone },
+    { "x-timezone": "UTC" },
   );
+
+  if (result) {
+    console.log("✅ QF activity day logged successfully");
+  }
 }
 
 // ── Get user's streak from QF ─────────────────────────────
 export async function getQFStreak(userId: string) {
   return qfRequest(userId, "GET", "/streaks?type=QURAN&status=ACTIVE&first=1");
+}
+
+export async function getQFActivityDays(userId: string) {
+  return qfRequest(userId, "GET", "/activity-days?type=QURAN&first=30");
 }
