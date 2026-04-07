@@ -105,7 +105,8 @@ export async function submitRecitation(
   res: Response,
 ): Promise<void> {
   try {
-    const { sessionId, transcription, audioFileUrl } = req.body;
+    const { sessionId, transcription, audioFileUrl, recordingDurationSeconds } =
+      req.body;
 
     if (!sessionId || !transcription || !audioFileUrl) {
       sendError(
@@ -121,6 +122,7 @@ export async function submitRecitation(
       sessionId,
       transcription,
       audioFileUrl,
+      recordingDurationSeconds,
     );
 
     sendSuccess(res, result, "Recitation submitted");

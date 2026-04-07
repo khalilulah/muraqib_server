@@ -1,9 +1,9 @@
 import { pool } from "../config/db";
 import { env } from "../config/env";
 
+// Pre-production user API base URL
 const QF_API_BASE = "https://apis-prelive.quran.foundation/auth/v1";
 
-// ── Get user's QF access token from DB ────────────────────
 async function getQFToken(userId: string): Promise<string | null> {
   const result = await pool.query(
     `SELECT qf_access_token, qf_refresh_token, qf_token_expires_at, qf_connected
@@ -13,16 +13,15 @@ async function getQFToken(userId: string): Promise<string | null> {
   const user = result.rows[0];
   if (!user || !user.qf_connected || !user.qf_access_token) return null;
 
-  // Check if token is still valid (with 5 min buffer)
   const expiresAt = new Date(user.qf_token_expires_at);
   const now = new Date();
   const bufferMs = 5 * 60 * 1000;
 
   if (expiresAt.getTime() - now.getTime() > bufferMs) {
-    return user.qf_access_token; // still valid
+    return user.qf_access_token;
   }
 
-  // Token expired — try to refresh
+  // Token expired — refresh it
   if (!user.qf_refresh_token) return null;
 
   try {
@@ -43,12 +42,8 @@ async function getQFToken(userId: string): Promise<string | null> {
     });
 
     const data = (await response.json()) as any;
-    if (!response.ok) {
-      console.error("QF token refresh failed:", data);
-      return null;
-    }
+    if (!response.ok) return null;
 
-    // Save new tokens
     await pool.query(
       `UPDATE users
        SET qf_access_token = $1,
@@ -58,15 +53,12 @@ async function getQFToken(userId: string): Promise<string | null> {
       [data.access_token, data.refresh_token, data.expires_in, userId],
     );
 
-    console.log("QF token refreshed successfully");
     return data.access_token;
-  } catch (error) {
-    console.error("QF token refresh error:", error);
+  } catch {
     return null;
   }
 }
 
-// ── Make an authenticated request to QF User API ──────────
 export async function qfRequest(
   userId: string,
   method: string,
@@ -96,8 +88,7 @@ export async function qfRequest(
   return response.json();
 }
 
-// ── Log an activity day on QF ─────────────────────────────
-// Called after every successful recitation
+// ── Log activity day after successful recitation ───────────
 export async function logQFActivityDay(
   userId: string,
   verses: { surahNumber: number; ayahNumber: number }[],
@@ -105,7 +96,7 @@ export async function logQFActivityDay(
 ) {
   if (verses.length === 0) return;
 
-  // Build ranges — e.g. ["1:1-1:7", "2:2-2:5"]
+  // Build ranges e.g. ["1:1-1:7", "2:2-2:5"]
   const ranges: string[] = [];
   let rangeStart = verses[0]!;
   let rangeEnd = verses[0]!;
@@ -148,15 +139,16 @@ export async function logQFActivityDay(
   );
 
   if (result) {
-    console.log("✅ QF activity day logged successfully");
+    console.log("✅ QF activity day logged:", ranges.join(", "));
   }
 }
 
-// ── Get user's streak from QF ─────────────────────────────
-export async function getQFStreak(userId: string) {
-  return qfRequest(userId, "GET", "/streaks?type=QURAN&status=ACTIVE&first=1");
-}
-
+// ── Get activity days for display ─────────────────────────
 export async function getQFActivityDays(userId: string) {
   return qfRequest(userId, "GET", "/activity-days?type=QURAN&first=30");
+}
+
+// ── Get streak ─────────────────────────────────────────────
+export async function getQFStreak(userId: string) {
+  return qfRequest(userId, "GET", "/streaks?type=QURAN&status=ACTIVE&first=1");
 }

@@ -489,6 +489,7 @@ export async function submitRecitation(
   sessionId: string,
   transcription: string,
   audioFileUrl: string,
+  recordingDurationSeconds: number = 0,
 ) {
   // 1. Fetch the session and goal
   const sessionResult = await pool.query(
@@ -567,13 +568,11 @@ export async function submitRecitation(
 
   // Pass verses and recording duration to updateStreak
   if (verificationStatus === "ai_verified") {
-    const verseList = verses.map(
-      (v: { surahNumber: number; ayahNumber: number }) => ({
-        surahNumber: v.surahNumber,
-        ayahNumber: v.ayahNumber,
-      }),
-    );
-    await updateStreak(userId, verseList, 0); // duration comes from partner review
+    const verseList = verses.map((v: any) => ({
+      surahNumber: v.surahNumber,
+      ayahNumber: v.ayahNumber,
+    }));
+    await updateStreak(userId, verseList, recordingDurationSeconds ?? 0);
     await advanceProgress(userId, session.goal_id);
   }
 
@@ -588,10 +587,9 @@ export async function submitRecitation(
 // ── Update streak ─────────────────────────────────────────
 export async function updateStreak(
   userId: string,
-  verses: { surahNumber: number; ayahNumber: number }[],
-  recordingDurationSeconds: number,
+  verses: { surahNumber: number; ayahNumber: number }[] = [],
+  recordingDurationSeconds: number = 0,
 ) {
-  // Check if user already completed a session today
   const todayResult = await pool.query(
     `SELECT id FROM recitation_sessions
      WHERE user_id = $1
@@ -600,10 +598,8 @@ export async function updateStreak(
     [userId],
   );
 
-  // Already verified today — don't double count
   if (todayResult.rows.length > 1) return;
 
-  // Check if they completed yesterday — to keep streak alive
   const yesterdayResult = await pool.query(
     `SELECT last_completed_at FROM streaks WHERE user_id = $1`,
     [userId],
@@ -613,8 +609,8 @@ export async function updateStreak(
   const isConsecutive =
     streak &&
     streak.last_completed_at &&
-    new Date().getTime() - new Date(streak.last_completed_at).getTime() <
-      48 * 60 * 60 * 1000;
+    new Date().getTime() - new Date(streak.last_completed_at).getTime();
+  48 * 60 * 60 * 1000;
 
   await pool.query(
     `INSERT INTO streaks (user_id, current_streak, longest_streak, last_completed_at)
@@ -630,7 +626,8 @@ export async function updateStreak(
        last_completed_at = NOW()`,
     [userId, isConsecutive],
   );
-  // Log activity to Quran Foundation — if user has connected their QF account
+
+  // Log to QF activity days
   await logQFActivityDay(userId, verses, recordingDurationSeconds);
 }
 
@@ -678,7 +675,7 @@ export async function reviewRecitation(
 
   // 5. If approved → update reciter's streak and advance progress
   if (action === "approved") {
-    await updateStreak(session.user_id, [], 0);
+    await updateStreak(session.user_id, [], 30); // approximate duration
     await advanceProgress(session.user_id, session.goal_id);
   }
 
