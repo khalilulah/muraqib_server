@@ -607,10 +607,10 @@ export async function updateStreak(
   const streak = yesterdayResult.rows[0];
 
   const isConsecutive =
-    streak &&
-    streak.last_completed_at &&
-    new Date().getTime() - new Date(streak.last_completed_at).getTime();
-  48 * 60 * 60 * 1000;
+    Boolean(streak) &&
+    Boolean(streak?.last_completed_at) &&
+    new Date().getTime() - new Date(streak.last_completed_at).getTime() <
+      48 * 60 * 60 * 1000;
 
   await pool.query(
     `INSERT INTO streaks (user_id, current_streak, longest_streak, last_completed_at)
