@@ -10,13 +10,7 @@ export async function redirectToQF(
   res: Response,
 ): Promise<void> {
   try {
-    const redirectTo = req.query.redirect_to as string;
-    if (!redirectTo) {
-      sendError(res, "Missing redirect_to", 400);
-      return;
-    }
-
-    const url = qfAuthService.getAuthorizationUrl(req.user!.id, redirectTo);
+    const url = qfAuthService.getAuthorizationUrl(req.user!.id);
     sendSuccess(res, { url }, "Redirect to Quran Foundation");
   } catch (error) {
     sendError(res, "Failed to generate authorization URL", 500);
@@ -34,11 +28,8 @@ export async function handleCallback(
     console.log("[QF Callback] Query params:", req.query);
 
     const error = req.query["error"] as string | undefined;
-    const errorDescription = req.query["error_description"] as
-      | string
-      | undefined;
     if (error) {
-      console.error("[QF Callback] Error:", error, errorDescription);
+      const errorDescription = req.query["error_description"] as string;
       sendError(res, `QF OAuth error: ${error} — ${errorDescription}`, 400);
       return;
     }
@@ -51,35 +42,21 @@ export async function handleCallback(
       return;
     }
 
-    console.log("[QF Callback] Received code:", code);
-    console.log("[QF Callback] Received state:", state);
-
-    // ✅ Exchange code for tokens and get stored redirect
-    const stored = qfAuthService.stateStore.get(state);
-    console.log(
-      "[QF Callback] Looking up state in stateStore:",
-      state,
-      "Found:",
-      stored,
-    );
-    if (!stored) {
-      console.error("[QF Callback] INVALID_STATE - state not found or expired");
-      sendError(res, "Invalid or expired state", 400);
-      return;
-    }
-    const redirectTo = `${stored.redirectTo}?code=${encodeURIComponent(code as string)}&state=${encodeURIComponent(state as string)}`;
-    console.log("[QF Callback] Redirecting to:", redirectTo);
-
-    // Exchange code & save tokens
     await qfAuthService.handleCallback(code, state);
-    console.log("[QF Callback] Redirecting to:", redirectTo);
 
-    // Redirect to the app
-    // Node/Express backend
-    return res.redirect(`${redirectTo}?success=true`);
-    console.log("────── [QF Callback] END ──────");
+    // Simple HTML page — browser closes, app polls for update
+    res.send(`
+      <html>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px; background: #F9F5F0;">
+          <div style="background: #1B4332; color: white; padding: 20px; border-radius: 12px; max-width: 300px; margin: auto;">
+            <h2>Connected!</h2>
+            <p>Your Quran Foundation account is now linked to Muraqib.</p>
+            <p>You can close this window and return to the app.</p>
+          </div>
+        </body>
+      </html>
+    `);
   } catch (error: unknown) {
-    console.error("[QF Callback] ERROR CAUGHT:", error);
     if (error instanceof Error) {
       if (error.message === "INVALID_STATE") {
         sendError(res, "Invalid or expired session. Please try again.", 400);

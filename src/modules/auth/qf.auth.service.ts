@@ -23,21 +23,15 @@ function generatePkcePair() {
 }
 
 // ─── Temporary in-memory store: state → { userId, codeVerifier, redirectTo } ───
-const stateStore = new Map<
-  string,
-  { userId: string; codeVerifier: string; redirectTo: string }
->();
+const stateStore = new Map<string, { userId: string; codeVerifier: string }>();
 
 // ─── Step 1: Generate QF login URL ─────────────────────────────────────────────
-export function getAuthorizationUrl(
-  userId: string,
-  redirectTo: string,
-): string {
+export function getAuthorizationUrl(userId: string): string {
   const { codeVerifier, codeChallenge } = generatePkcePair();
   const state = crypto.randomBytes(16).toString("hex");
 
-  stateStore.set(state, { userId, codeVerifier, redirectTo });
-  setTimeout(() => stateStore.delete(state), 10 * 60 * 1000); // auto-clean 10 min
+  stateStore.set(state, { userId, codeVerifier });
+  setTimeout(() => stateStore.delete(state), 10 * 60 * 1000);
 
   const params = new URLSearchParams({
     client_id: env.qf.clientId,
