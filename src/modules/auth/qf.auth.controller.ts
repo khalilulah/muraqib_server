@@ -34,10 +34,10 @@ export async function handleCallback(
     console.log("[QF Callback] Query params:", req.query);
 
     const error = req.query["error"] as string | undefined;
+    const errorDescription = req.query["error_description"] as
+      | string
+      | undefined;
     if (error) {
-      const errorDescription = req.query["error_description"] as
-        | string
-        | undefined;
       console.error("[QF Callback] Error:", error, errorDescription);
       sendError(res, `QF OAuth error: ${error} — ${errorDescription}`, 400);
       return;
@@ -51,9 +51,19 @@ export async function handleCallback(
       return;
     }
 
+    console.log("[QF Callback] Received code:", code);
+    console.log("[QF Callback] Received state:", state);
+
     // ✅ Exchange code for tokens and get stored redirect
     const stored = (qfAuthService as any).stateStore.get(state);
+    console.log(
+      "[QF Callback] Looking up state in stateStore:",
+      state,
+      "Found:",
+      stored,
+    );
     if (!stored) {
+      console.error("[QF Callback] INVALID_STATE - state not found or expired");
       sendError(res, "Invalid or expired state", 400);
       return;
     }
@@ -66,7 +76,9 @@ export async function handleCallback(
 
     // Redirect to the app
     res.redirect(redirectTo);
+    console.log("────── [QF Callback] END ──────");
   } catch (error: unknown) {
+    console.error("[QF Callback] ERROR CAUGHT:", error);
     if (error instanceof Error) {
       if (error.message === "INVALID_STATE") {
         sendError(res, "Invalid or expired session. Please try again.", 400);
