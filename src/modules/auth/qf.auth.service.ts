@@ -105,3 +105,5 @@ export async function handleCallback(code: string, state: string) {
 
   return { connected: true, userId };
 }
+
+export { stateStore };

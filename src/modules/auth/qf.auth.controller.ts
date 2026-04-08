@@ -55,7 +55,7 @@ export async function handleCallback(
     console.log("[QF Callback] Received state:", state);
 
     // ✅ Exchange code for tokens and get stored redirect
-    const stored = (qfAuthService as any).stateStore.get(state);
+    const stored = qfAuthService.stateStore.get(state);
     console.log(
       "[QF Callback] Looking up state in stateStore:",
       state,
