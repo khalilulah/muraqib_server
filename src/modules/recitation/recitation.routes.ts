@@ -11,6 +11,7 @@ router.get("/goals/active", recitationController.getActiveGoal);
 router.post("/sessions/start", recitationController.startSession);
 router.post("/sessions/submit", recitationController.submitRecitation);
 router.get("/sessions/pending-reviews", recitationController.getPendingReviews);
+router.get("/activity-calendar", recitationController.getActivityCalendar);
 router.patch("/sessions/:id/review", recitationController.reviewRecitation);
 router.get("/sessions/:id", recitationController.getSession);
 router.get("/streak", recitationController.getStreak);

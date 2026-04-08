@@ -230,3 +230,16 @@ export async function getPendingReviews(
     sendError(res, "Something went wrong", 500);
   }
 }
+
+export async function getActivityCalendar(
+  req: AuthRequest,
+  res: Response,
+): Promise<void> {
+  try {
+    const { getQFActivityDays } = await import("../../utils/qf.api");
+    const data = await getQFActivityDays(req.user!.id);
+    sendSuccess(res, data?.data ?? [], "Activity calendar fetched");
+  } catch (error) {
+    sendError(res, "Something went wrong", 500);
+  }
+}

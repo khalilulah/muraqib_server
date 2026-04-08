@@ -143,12 +143,25 @@ export async function logQFActivityDay(
   }
 }
 
-// ── Get activity days for display ─────────────────────────
-export async function getQFActivityDays(userId: string) {
-  return qfRequest(userId, "GET", "/activity-days?type=QURAN&first=30");
-}
+// // ── Get activity days for display ─────────────────────────
+// export async function getQFActivityDays(userId: string) {
+//   return qfRequest(userId, "GET", "/activity-days?type=QURAN&first=30");
+// }
 
 // ── Get streak ─────────────────────────────────────────────
 export async function getQFStreak(userId: string) {
   return qfRequest(userId, "GET", "/streaks?type=QURAN&status=ACTIVE&first=1");
+}
+
+export async function getQFActivityDays(userId: string) {
+  const today = new Date().toISOString().split("T")[0];
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  return qfRequest(
+    userId,
+    "GET",
+    `/activity-days?type=QURAN&from=${thirtyDaysAgo}&to=${today}&first=20&dateOrderBy=asc`,
+  );
 }
