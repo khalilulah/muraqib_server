@@ -75,7 +75,8 @@ export async function handleCallback(
     console.log("[QF Callback] Redirecting to:", redirectTo);
 
     // Redirect to the app
-    res.redirect(redirectTo);
+    // Node/Express backend
+    return res.redirect(`${redirectTo}?success=true`);
     console.log("────── [QF Callback] END ──────");
   } catch (error: unknown) {
     console.error("[QF Callback] ERROR CAUGHT:", error);
