@@ -67,8 +67,8 @@ export async function handleCallback(
       sendError(res, "Invalid or expired state", 400);
       return;
     }
-
-    const { redirectTo } = stored;
+    const redirectTo = `${stored.redirectTo}?code=${encodeURIComponent(code as string)}&state=${encodeURIComponent(state as string)}`;
+    console.log("[QF Callback] Redirecting to:", redirectTo);
 
     // Exchange code & save tokens
     await qfAuthService.handleCallback(code, state);
