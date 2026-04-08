@@ -56,7 +56,8 @@ export async function handleCallback(
     }
 
     const result = await qfAuthService.handleCallback(code, state);
-    sendSuccess(res, result, "Quran Foundation account connected");
+    res.redirect("muraqib://callback");
+    return;
   } catch (error: unknown) {
     if (error instanceof Error) {
       if (error.message === "INVALID_STATE") {
