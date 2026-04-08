@@ -22,24 +22,22 @@ function generatePkcePair() {
   return { codeVerifier, codeChallenge };
 }
 
-// ─── Temporary in-memory store: state → { userId, codeVerifier } ─────────────
-// This is fine for a single-instance server (hackathon/MVP)
-// For multi-instance production you'd use Redis
-const stateStore = new Map<string, { userId: string; codeVerifier: string }>();
+// ─── Temporary in-memory store: state → { userId, codeVerifier, redirectTo } ───
+const stateStore = new Map<
+  string,
+  { userId: string; codeVerifier: string; redirectTo: string }
+>();
 
-// ── Step 1: Generate QF login URL ─────────────────────────────────────────────
-
-export function getAuthorizationUrl(userId: string): string {
+// ─── Step 1: Generate QF login URL ─────────────────────────────────────────────
+export function getAuthorizationUrl(
+  userId: string,
+  redirectTo: string,
+): string {
   const { codeVerifier, codeChallenge } = generatePkcePair();
-
-  // state is a random string — NOT the userId directly
   const state = crypto.randomBytes(16).toString("hex");
 
-  // Store it so we can look up the userId when QF calls our callback
-  stateStore.set(state, { userId, codeVerifier });
-
-  // Auto-clean after 10 minutes (user should complete login by then)
-  setTimeout(() => stateStore.delete(state), 10 * 60 * 1000);
+  stateStore.set(state, { userId, codeVerifier, redirectTo });
+  setTimeout(() => stateStore.delete(state), 10 * 60 * 1000); // auto-clean 10 min
 
   const params = new URLSearchParams({
     client_id: env.qf.clientId,
@@ -54,19 +52,13 @@ export function getAuthorizationUrl(userId: string): string {
   return `${QF_AUTH_URL}?${params.toString()}`;
 }
 
-// ── Step 2: Exchange code for tokens ──────────────────────────────────────────
-
+// ─── Step 2: Exchange code for tokens ──────────────────────────────────────────
 export async function handleCallback(code: string, state: string) {
-  // Look up userId and codeVerifier from the state
   const stored = stateStore.get(state);
-  if (!stored) {
-    throw new Error("INVALID_STATE"); // expired or tampered
-  }
-  stateStore.delete(state); // one-time use
+  if (!stored) throw new Error("INVALID_STATE");
 
   const { userId, codeVerifier } = stored;
 
-  // Confidential client: credentials go in Authorization header, NOT the body
   const credentials = Buffer.from(
     `${env.qf.clientId}:${env.qf.clientSecret}`,
   ).toString("base64");
@@ -75,13 +67,13 @@ export async function handleCallback(code: string, state: string) {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${credentials}`, // ← correct for confidential client
+      Authorization: `Basic ${credentials}`,
     },
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
       redirect_uri: env.qf.redirectUri,
-      code_verifier: codeVerifier, // ← PKCE verifier
+      code_verifier: codeVerifier,
     }).toString(),
   });
 
@@ -107,6 +99,9 @@ export async function handleCallback(code: string, state: string) {
      WHERE id = $4`,
     [data.access_token, data.refresh_token, data.expires_in, userId],
   );
+
+  // ✅ Remove state after success
+  stateStore.delete(state);
 
   return { connected: true, userId };
 }

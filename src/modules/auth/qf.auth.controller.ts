@@ -3,46 +3,42 @@ import { AuthRequest } from "../../types";
 import * as qfAuthService from "./qf.auth.service";
 import { sendSuccess, sendError } from "../../utils/response";
 
-// GET /api/auth/qf
-// Protected — user must be logged in with their own JWT
-// Returns the QF login URL for the mobile app to open in a browser
+// ─── GET /api/auth/qf ──────────────────────────────────────────────
+// Returns the QF login URL
 export async function redirectToQF(
   req: AuthRequest,
   res: Response,
 ): Promise<void> {
   try {
-    // Now we correctly pass the userId so the state store knows who this is
-    const url = qfAuthService.getAuthorizationUrl(req.user!.id);
+    const redirectTo = req.query.redirect_to as string;
+    if (!redirectTo) {
+      sendError(res, "Missing redirect_to", 400);
+      return;
+    }
+
+    const url = qfAuthService.getAuthorizationUrl(req.user!.id, redirectTo);
     sendSuccess(res, { url }, "Redirect to Quran Foundation");
   } catch (error) {
     sendError(res, "Failed to generate authorization URL", 500);
   }
 }
 
-// GET /api/auth/qf/callback
-// PUBLIC — no authenticate middleware on this route
-// QF redirects here after user logs in. We get ?code=...&state=...
+// ─── GET /api/auth/qf/callback ─────────────────────────────────────
+// PUBLIC — QF redirects here after login
 export async function handleCallback(
-  req: Request, // plain Request, not AuthRequest — this route is public
+  req: Request,
   res: Response,
 ): Promise<void> {
   try {
-    // ADD THIS — temporarily log what QF actually sent back
     console.log("[QF Callback] Full URL:", req.url);
     console.log("[QF Callback] Query params:", req.query);
 
-    // Check if QF returned an error first
     const error = req.query["error"] as string | undefined;
-    const errorDescription = req.query["error_description"] as
-      | string
-      | undefined;
-
     if (error) {
-      console.error(
-        "[QF Callback] QF returned error:",
-        error,
-        errorDescription,
-      );
+      const errorDescription = req.query["error_description"] as
+        | string
+        | undefined;
+      console.error("[QF Callback] Error:", error, errorDescription);
       sendError(res, `QF OAuth error: ${error} — ${errorDescription}`, 400);
       return;
     }
@@ -55,9 +51,21 @@ export async function handleCallback(
       return;
     }
 
-    const result = await qfAuthService.handleCallback(code, state);
-    res.redirect("muraqib://callback");
-    return;
+    // ✅ Exchange code for tokens and get stored redirect
+    const stored = (qfAuthService as any).stateStore.get(state);
+    if (!stored) {
+      sendError(res, "Invalid or expired state", 400);
+      return;
+    }
+
+    const { redirectTo } = stored;
+
+    // Exchange code & save tokens
+    await qfAuthService.handleCallback(code, state);
+    console.log("[QF Callback] Redirecting to:", redirectTo);
+
+    // Redirect to the app
+    res.redirect(redirectTo);
   } catch (error: unknown) {
     if (error instanceof Error) {
       if (error.message === "INVALID_STATE") {
