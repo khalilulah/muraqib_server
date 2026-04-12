@@ -1,5 +1,6 @@
 import { env } from "./config/env";
 import { connectDB } from "./config/db";
+import { startScheduler } from "./utils/scheduler";
 
 async function main() {
   // Validate env vars and connect to DB first
@@ -12,5 +13,7 @@ async function main() {
     console.log(`🚀 Server running on port ${env.port} [${env.nodeEnv}]`);
   });
 }
+
+startScheduler();
 
 main();
