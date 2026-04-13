@@ -137,9 +137,13 @@ export async function logQFActivityDay(
     },
     { "x-timezone": "UTC" },
   );
+  // Log the full response
+  console.log("QF activity day response:", JSON.stringify(result));
 
   if (result) {
     console.log("✅ QF activity day logged:", ranges.join(", "));
+  } else {
+    console.log("❌ QF activity day failed — result was null");
   }
 }
 
@@ -159,9 +163,14 @@ export async function getQFActivityDays(userId: string) {
     .toISOString()
     .split("T")[0];
 
-  return qfRequest(
+  console.log("Fetching QF activity days from:", thirtyDaysAgo, "to:", today);
+
+  const result = await qfRequest(
     userId,
     "GET",
     `/activity-days?type=QURAN&from=${thirtyDaysAgo}&to=${today}&first=20&dateOrderBy=asc`,
   );
+
+  console.log("QF activity days response:", JSON.stringify(result));
+  return result;
 }
