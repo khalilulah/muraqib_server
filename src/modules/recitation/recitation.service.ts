@@ -417,14 +417,38 @@ export async function startSession(userId: string, goalId: string) {
     throw new Error("GOAL_EXPIRED");
   }
 
+  // Check if there's already a pending session today — reuse it
+  const existingSession = await pool.query(
+    `SELECT * FROM recitation_sessions 
+     WHERE user_id = $1 
+     AND goal_id = $2
+     AND verification_status = 'pending'
+     AND DATE(created_at) = CURRENT_DATE
+     LIMIT 1`,
+    [userId, goalId],
+  );
+
   // Resolve what to recite today
   const { surahNumber, fromAyah, count } = await resolveVerseRange(goal);
   const verses = await fetchVerses(surahNumber, fromAyah, count);
 
+  // Reuse existing session instead of creating a new one
+  if (existingSession.rows.length > 0) {
+    console.log(
+      "Reusing existing pending session:",
+      existingSession.rows[0].id,
+    );
+    return {
+      session: existingSession.rows[0],
+      verses,
+      meta: { surahNumber, fromAyah, totalAyahs: verses.length },
+    };
+  }
+
   const sessionResult = await pool.query(
     `INSERT INTO recitation_sessions (user_id, goal_id)
-   VALUES ($1, $2)
-   RETURNING *`,
+     VALUES ($1, $2)
+     RETURNING *`,
     [userId, goalId],
   );
 
