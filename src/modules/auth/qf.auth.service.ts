@@ -5,8 +5,7 @@ import { env } from "../../config/env";
 const QF_AUTH_URL = `${env.qf.baseUrl}/oauth2/auth`;
 const QF_TOKEN_URL = `${env.qf.baseUrl}/oauth2/token`;
 
-// ─── PKCE Helpers ─────────────────────────────────────────────────────────────
-
+// ── PKCE Helpers ──────────────────────────────────────────
 function base64url(buf: Buffer): string {
   return buf
     .toString("base64")
@@ -22,22 +21,23 @@ function generatePkcePair() {
   return { codeVerifier, codeChallenge };
 }
 
-// ─── Temporary in-memory store: state → { userId, codeVerifier, redirectTo } ───
-const stateStore = new Map<string, { userId: string; codeVerifier: string }>();
-
-// ─── Step 1: Generate QF login URL ─────────────────────────────────────────────
-export function getAuthorizationUrl(userId: string): string {
+// ── Step 1: Generate QF login URL ─────────────────────────
+export async function getAuthorizationUrl(userId: string): Promise<string> {
   const { codeVerifier, codeChallenge } = generatePkcePair();
   const state = crypto.randomBytes(16).toString("hex");
 
-  stateStore.set(state, { userId, codeVerifier });
-  setTimeout(() => stateStore.delete(state), 10 * 60 * 1000);
+  // Store in DB instead of in-memory Map — works across serverless instances
+  await pool.query(
+    `INSERT INTO oauth_states (state, user_id, code_verifier)
+     VALUES ($1, $2, $3)`,
+    [state, userId, codeVerifier],
+  );
 
   const params = new URLSearchParams({
     client_id: env.qf.clientId,
     redirect_uri: env.qf.redirectUri,
     response_type: "code",
-    scope: "openid offline_access streak activity_day",
+    scope: "openid offline_access",
     state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
@@ -46,13 +46,25 @@ export function getAuthorizationUrl(userId: string): string {
   return `${QF_AUTH_URL}?${params.toString()}`;
 }
 
-// ─── Step 2: Exchange code for tokens ──────────────────────────────────────────
+// ── Step 2: Exchange code for tokens ──────────────────────
 export async function handleCallback(code: string, state: string) {
-  const stored = stateStore.get(state);
-  if (!stored) throw new Error("INVALID_STATE");
+  // Look up state from DB
+  const stateResult = await pool.query(
+    `DELETE FROM oauth_states
+     WHERE state = $1 AND expires_at > NOW()
+     RETURNING user_id, code_verifier`,
+    [state],
+  );
 
-  const { userId, codeVerifier } = stored;
+  // DELETE ... RETURNING gives us the row and removes it atomically
+  // If nothing returned: state expired or never existed
+  if (stateResult.rows.length === 0) {
+    throw new Error("INVALID_STATE");
+  }
 
+  const { user_id: userId, code_verifier: codeVerifier } = stateResult.rows[0];
+
+  // Exchange code for tokens
   const credentials = Buffer.from(
     `${env.qf.clientId}:${env.qf.clientSecret}`,
   ).toString("base64");
@@ -94,10 +106,5 @@ export async function handleCallback(code: string, state: string) {
     [data.access_token, data.refresh_token, data.expires_in, userId],
   );
 
-  // ✅ Remove state after success
-  stateStore.delete(state);
-
   return { connected: true, userId };
 }
-
-export { stateStore };

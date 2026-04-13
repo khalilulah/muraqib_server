@@ -10,7 +10,7 @@ export async function redirectToQF(
   res: Response,
 ): Promise<void> {
   try {
-    const url = qfAuthService.getAuthorizationUrl(req.user!.id);
+    const url = await qfAuthService.getAuthorizationUrl(req.user!.id);
     sendSuccess(res, { url }, "Redirect to Quran Foundation");
   } catch (error) {
     sendError(res, "Failed to generate authorization URL", 500);
