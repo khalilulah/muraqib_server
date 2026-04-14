@@ -37,7 +37,7 @@ export async function getAuthorizationUrl(userId: string): Promise<string> {
     client_id: env.qf.clientId,
     redirect_uri: env.qf.redirectUri,
     response_type: "code",
-    scope: "openid offline_access",
+    scope: "openid offline_access activity_day streak",
     state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
