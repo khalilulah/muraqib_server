@@ -652,7 +652,10 @@ export async function updateStreak(
   );
 
   // Log to QF activity days
+  // At the end of updateStreak, before logQFActivityDay
+  console.log("[updateStreak] Calling logQFActivityDay for user:", userId);
   await logQFActivityDay(userId, verses, recordingDurationSeconds);
+  console.log("[updateStreak] logQFActivityDay done");
 }
 
 // ── Partner reviews a recitation ──────────────────────────
