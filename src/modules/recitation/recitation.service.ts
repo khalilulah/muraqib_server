@@ -598,6 +598,7 @@ export async function submitRecitation(
     }));
     await updateStreak(userId, verseList, recordingDurationSeconds ?? 0);
     await advanceProgress(userId, session.goal_id);
+    console.log("Verse list for QF:", verseList.length, "verses");
   }
 
   return {
@@ -702,7 +703,31 @@ export async function reviewRecitation(
 
   // 5. If approved → update reciter's streak and advance progress
   if (action === "approved") {
-    await updateStreak(session.user_id, [], 30); // approximate duration
+    const goalResult = await pool.query(
+      `SELECT current_surah, current_ayah, daily_ayah_count
+     FROM recitation_goals WHERE id = $1`,
+      [session.goal_id],
+    );
+    const goal = goalResult.rows[0];
+
+    let verseList: { surahNumber: number; ayahNumber: number }[] = [];
+    if (goal) {
+      try {
+        const verses = await fetchVerses(
+          goal.current_surah,
+          goal.current_ayah,
+          goal.daily_ayah_count ?? 20,
+        );
+        verseList = verses.map((v) => ({
+          surahNumber: v.surahNumber,
+          ayahNumber: v.ayahNumber,
+        }));
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    await updateStreak(session.user_id, verseList, 30);
     await advanceProgress(session.user_id, session.goal_id);
   }
 
