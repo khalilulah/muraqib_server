@@ -67,9 +67,15 @@ export async function qfRequest(
   extraHeaders?: Record<string, string>,
 ): Promise<any> {
   const token = await getQFToken(userId);
-  if (!token) return null;
+  if (!token) {
+    console.log(`[qfRequest] No token for user ${userId} — skipping`);
+    return null;
+  }
 
-  const response = await fetch(`${QF_API_BASE}${path}`, {
+  const url = `${QF_API_BASE}${path}`;
+  console.log(`[qfRequest] ${method} ${url}`);
+
+  const response = await fetch(url, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -81,7 +87,12 @@ export async function qfRequest(
   });
 
   if (!response.ok) {
-    console.error(`QF API error: ${response.status} on ${path}`);
+    // Read the actual error body — this tells us exactly what QF rejected
+    const errorBody = await response.json().catch(() => ({}));
+    console.error(
+      `[qfRequest] ${response.status} on ${path}:`,
+      JSON.stringify(errorBody),
+    );
     return null;
   }
 
@@ -94,9 +105,12 @@ export async function logQFActivityDay(
   verses: { surahNumber: number; ayahNumber: number }[],
   recordingDurationSeconds: number,
 ) {
-  if (verses.length === 0) return;
+  if (verses.length === 0) {
+    console.log("[logQFActivityDay] Skipping — no verses provided");
+    return;
+  }
 
-  // Build ranges e.g. ["1:1-1:7", "2:2-2:5"]
+  // Build ranges
   const ranges: string[] = [];
   let rangeStart = verses[0]!;
   let rangeEnd = verses[0]!;
@@ -124,26 +138,28 @@ export async function logQFActivityDay(
     `${rangeStart.surahNumber}:${rangeStart.ayahNumber}-${rangeEnd.surahNumber}:${rangeEnd.ayahNumber}`,
   );
 
-  const result = await qfRequest(
-    userId,
-    "POST",
-    "/activity-days",
-    {
-      type: "QURAN",
-      seconds: Math.max(recordingDurationSeconds, 1),
-      ranges,
-      mushafId: 4,
-      date: new Date().toISOString().split("T")[0],
-    },
-    { "x-timezone": "UTC" },
-  );
-  // Log the full response
-  console.log("QF activity day response:", JSON.stringify(result));
+  const payload = {
+    type: "QURAN",
+    seconds: Math.max(recordingDurationSeconds, 1),
+    ranges,
+    mushafId: 4,
+    date: new Date().toISOString().split("T")[0],
+  };
+
+  console.log("[logQFActivityDay] Sending payload:", JSON.stringify(payload));
+  console.log("[logQFActivityDay] Ranges:", ranges.join(", "));
+
+  const result = await qfRequest(userId, "POST", "/activity-days", payload, {
+    "x-timezone": "UTC",
+  });
 
   if (result) {
-    console.log("✅ QF activity day logged:", ranges.join(", "));
+    console.log(
+      "✅ QF activity day logged successfully:",
+      JSON.stringify(result),
+    );
   } else {
-    console.log("❌ QF activity day failed — result was null");
+    console.log("❌ QF activity day returned null — likely 403 or no token");
   }
 }
 
