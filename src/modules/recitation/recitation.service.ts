@@ -840,14 +840,13 @@ export async function getSession(sessionId: string) {
 
 export async function getPendingReviews(userId: string) {
   const result = await pool.query(
-    `SELECT
-      rs.id,
-      rs.created_at,
-      u.username AS partner_username
+    `SELECT rs.id, rs.created_at, u.username AS partner_username
      FROM recitation_sessions rs
      JOIN users u ON u.id = rs.user_id
      WHERE rs.verification_status = 'pending'
      AND rs.user_id != $1
+     AND rs.audio_file_url IS NOT NULL
+     AND rs.audio_file_url != ''
      AND EXISTS (
        SELECT 1 FROM partnerships p
        WHERE p.status = 'accepted'
