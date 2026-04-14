@@ -31,9 +31,9 @@ router.post("/test-qf-activity", async (req: AuthRequest, res: Response) => {
 router.post("/sessions/submit", recitationController.submitRecitation);
 router.get("/sessions/pending-reviews", recitationController.getPendingReviews);
 router.get("/activity-calendar", recitationController.getActivityCalendar);
-router.patch("/sessions/:id/review", recitationController.reviewRecitation);
-router.get("/sessions/:id", recitationController.getSession);
 router.get("/streak", recitationController.getStreak);
 router.get("/history", recitationController.getRecitationHistory);
+router.patch("/sessions/:id/review", recitationController.reviewRecitation);
+router.get("/sessions/:id", recitationController.getSession);
 
 export default router;
