@@ -101,6 +101,7 @@ export async function startSession(
 
     const errorMap: Record<string, [string, number]> = {
       GOAL_NOT_FOUND: ["Active goal not found", 404],
+      GOAL_EXPIRED: ["Your goal has expired. Please create a new one.", 400],
       VERSE_FETCH_FAILED: ["Failed to fetch verses, try again", 502],
     };
 
