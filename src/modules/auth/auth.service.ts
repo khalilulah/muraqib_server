@@ -87,3 +87,32 @@ export async function login(data: { email: string; password: string }) {
     refreshToken,
   };
 }
+
+export async function refreshAccessToken(refreshToken: string) {
+  // 1. Verify the refresh token is valid and not tampered
+  let payload: any;
+  try {
+    payload = jwt.verify(refreshToken, env.jwt.refreshSecret);
+  } catch {
+    throw new Error("INVALID_REFRESH_TOKEN");
+  }
+
+  // 2. Check it exists in DB (not revoked/logged out)
+  const result = await pool.query(
+    `SELECT id FROM refresh_tokens 
+     WHERE token = $1 AND expires_at > NOW()`,
+    [refreshToken],
+  );
+  if (!result.rows[0]) {
+    throw new Error("INVALID_REFRESH_TOKEN");
+  }
+
+  // 3. Issue a new access token
+  const accessToken = jwt.sign(
+    { id: payload.id, email: payload.email },
+    env.jwt.accessSecret,
+    { expiresIn: env.jwt.accessExpiresIn as any },
+  );
+
+  return { accessToken };
+}

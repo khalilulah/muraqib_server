@@ -51,3 +51,17 @@ export async function login(req: Request, res: Response): Promise<void> {
     sendError(res, "Something went wrong", 500);
   }
 }
+
+export async function refresh(req: Request, res: Response): Promise<void> {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      sendError(res, "Refresh token required", 400);
+      return;
+    }
+    const result = await authService.refreshAccessToken(refreshToken);
+    sendSuccess(res, result, "Token refreshed");
+  } catch (error: any) {
+    sendError(res, "Invalid or expired session, please log in again", 401);
+  }
+}

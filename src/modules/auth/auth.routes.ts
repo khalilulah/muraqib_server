@@ -7,7 +7,7 @@ const router = Router();
 
 router.post("/register", authController.register);
 router.post("/login", authController.login);
-
+router.post("/refresh", authController.refresh);
 // Quran Foundation OAuth2
 router.get("/qf", authMiddleware, qfAuthController.redirectToQF);
 router.get("/qf/callback", qfAuthController.handleCallback);
