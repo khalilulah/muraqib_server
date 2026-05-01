@@ -405,6 +405,7 @@ export async function advanceProgress(userId: string, goalId: string) {
 
 // ── Start a session ───────────────────────────────────────
 export async function startSession(userId: string, goalId: string) {
+  console.log("[recitationService.startSession] called", { userId, goalId });
   const goalResult = await pool.query(
     `SELECT * FROM recitation_goals WHERE id = $1 AND user_id = $2 AND is_active = true`,
     [goalId, userId],

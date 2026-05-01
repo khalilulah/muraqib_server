@@ -76,6 +76,11 @@ export async function startSession(
 ): Promise<void> {
   try {
     const { goalId } = req.body;
+    console.log("[startSession] called", {
+      userId: req.user?.id,
+      goalId,
+      hasUser: !!req.user,
+    });
 
     if (!goalId) {
       sendError(res, "goalId is required", 400);
@@ -83,8 +88,17 @@ export async function startSession(
     }
 
     const result = await recitationService.startSession(req.user!.id, goalId);
+    console.log("[startSession] success", { sessionId: result?.session?.id });
     sendSuccess(res, result, "Session started");
   } catch (error: any) {
+    // 👇 This is the key addition — log the full error before mapping it
+    console.error("[startSession] error", {
+      message: error.message,
+      code: error.code,
+      stack: error.stack,
+      cause: error.cause,
+    });
+
     const errorMap: Record<string, [string, number]> = {
       GOAL_NOT_FOUND: ["Active goal not found", 404],
       VERSE_FETCH_FAILED: ["Failed to fetch verses, try again", 502],
